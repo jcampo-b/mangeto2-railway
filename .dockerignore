@@ -1,0 +1,32 @@
+# Local dependencies and artifacts
+node_modules/
+.git/
+magento/.git
+.env
+.env.*
+!.env.example
+
+# Project files (not part of the app in the container)
+Dockerfile
+.dockerignore
+MAGENTO-RAILWAY.md
+README.md
+MySQL/
+
+# Node tests and scripts (not part of Magento)
+test-mysql.js
+test-elastic.js
+package-lock.json
+package.json
+
+# IDE / system
+.cursor/
+.idea/
+*.log
+.DS_Store
+
+# IDE / system
+.cursor/
+.idea/
+*.log
+.DS_Store
