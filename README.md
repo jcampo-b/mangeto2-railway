@@ -64,4 +64,62 @@ So: **no Magento tables in MySQL** → full `setup:install` plus reindex and pro
 - **What**: Clone `magento/magento2-sample-data` (branch 2.4), run the sample data build script with `--ce-source="/var/www/html"`, then `setup:upgrade`, `setup:di:compile`, static content deploy, cache flush, and copy sample media into `pub/media`.
 
 ---
-"# mangeto2-railway" 
+
+## 4. Railway template setup
+
+When building a template in the [Railway Template Composer](https://docs.railway.com/templates/create), use **template variable functions** to generate secrets and **reference variables** so Magento gets the same credentials as Elasticsearch.
+
+### Elasticsearch service
+
+- **Root Directory**: `elasticsearch` (this repo).
+- **Volume**: Attach a volume with mount path `/esdata`.
+- **Variables** (same as the [Railway Elasticsearch template](https://github.com/railwayapp-templates/elasticsearch)):
+
+| Variable            | Value              | Description |
+|---------------------|--------------------|-------------|
+| `ELASTIC_PASSWORD`  | `${{secret(32)}}`  | Random password for user `elastic`; generated once per deploy. |
+| `ELASTIC_USERNAME`  | `elastic`          | Built-in superuser username. |
+| `ES_JAVA_OPTS`      | `-Xms500m -Xmx4g`  | JVM heap (min 500m, max 4g). |
+| `PORT`              | `9200`             | HTTP port; Railway exposes the service on this port. |
+
+### Magento service
+
+Reference the Elasticsearch service so Magento uses the same password and host:
+
+| Variable                  | Value |
+|---------------------------|--------|
+| `ELASTICSEARCH_PASSWORD`  | `${{Elasticsearch.ELASTIC_PASSWORD}}` |
+| `ELASTICSEARCH_HOST`      | `${{Elasticsearch.RAILWAY_PRIVATE_DOMAIN}}` (or the Elasticsearch service's private hostname) |
+| `ELASTICSEARCH_PORT`      | `9200` (or the port exposed by Elasticsearch) |
+| `ELASTICSEARCH_USERNAME`  | `elastic` |
+
+Use your MySQL and admin variables as usual (e.g. `MYSQL_HOST`, `MYSQL_PASSWORD`, `ADMIN_PASSWORD`). For MySQL you can also use `${{MySQL.RAILWAY_PRIVATE_DOMAIN}}` and `${{MySQL.MYSQL_PASSWORD}}` if the service names match.
+
+---
+
+## 5. Required environment variables (Railway)
+
+For the Magento service, set at least:
+
+| Variable          | Description                |
+|-------------------|----------------------------|
+| `MYSQL_HOST`      | MySQL server host          |
+| `MYSQL_PORT`      | MySQL port                 |
+| `MYSQL_USER`      | MySQL user                 |
+| `MYSQL_PASSWORD`  | MySQL password             |
+| `MYSQL_DATABASE`  | Database name              |
+
+For OpenSearch/Elasticsearch (used at install): `ELASTICSEARCH_HOST`, `ELASTICSEARCH_PORT`, `ELASTICSEARCH_PASSWORD`, and optionally auth and index prefix. For admin account: `ADMIN_PASSWORD` (and optionally `ADMIN_EMAIL`, etc.). See `docker/entrypoint.sh` for the full list and defaults.
+
+---
+
+## 6. Summary
+
+| Scenario              | Behavior                                                                 |
+|-----------------------|--------------------------------------------------------------------------|
+| **Volume empty**      | Copy Magento from `/opt/magento` in the image to `/var/www/html`.        |
+| **MySQL has no store table** | Run `setup:install` with MySQL + OpenSearch, then reindex and production setup. |
+| **MySQL already has Magento** | Skip install; only fix permissions and optional sample data.             |
+| **INSTALL_SAMPLE_DATA=true** | Clone magento2-sample-data, build, upgrade, deploy, copy media.          |
+
+Magento is installed from the **magento/magento2** GitHub tag (ZIP + Composer). Sample data, when requested, comes from **magento/magento2-sample-data** (branch 2.4).
