@@ -1,0 +1,15 @@
+<?php
+/** @var \Braintly\Caas\Block\Product\CaasWidget $block */
+
+if (!$block->isEnabled() || !$block->getProductId()) {
+    return;
+}
+?>
+<script>
+  window.CAAS_CONFIG = {
+    store_id: "<?= $block->escapeJs($block->getStoreId()) ?>",
+    product_id: "<?= $block->escapeJs($block->getProductId()) ?>",
+    customer_id: <?= $block->getCustomerId() !== null ? '"' . $block->escapeJs($block->getCustomerId()) . '"' : 'null' ?>
+  };
+</script>
+<script src="<?= $block->escapeUrl($block->getApiUrl()) ?>/magento-measurements-script.js" defer></script>
