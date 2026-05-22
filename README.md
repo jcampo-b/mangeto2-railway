@@ -1,3 +1,5 @@
+#FORKED By Braintly
+
 # Magento 2 with MySQL 8 and Elasticsearch for Railway
 
 Magento 2.4 stack designed to run on [Railway](https://railway.com): web app (Nginx + PHP-FPM), MySQL 8, and Elasticsearch as separate services.
@@ -123,3 +125,4 @@ For OpenSearch/Elasticsearch (used at install): `ELASTICSEARCH_HOST`, `ELASTICSE
 | **INSTALL_SAMPLE_DATA=true** | Clone magento2-sample-data, build, upgrade, deploy, copy media.          |
 
 Magento is installed from the **magento/magento2** GitHub tag (ZIP + Composer). Sample data, when requested, comes from **magento/magento2-sample-data** (branch 2.4).
+
