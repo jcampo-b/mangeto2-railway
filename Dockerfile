@@ -72,6 +72,9 @@ RUN curl -fsSL "https://codeload.github.com/magento/magento2/zip/refs/tags/${MAG
     && rm -rf /tmp/magento.zip "/tmp/magento2-${MAGENTO_VERSION_TAG}" \
     && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --prefer-dist --no-interaction
 
+# Copy Braintly CAAS module into the Magento image
+COPY app/code/Braintly/Caas /var/www/html/app/code/Braintly/Caas
+
 # Permissions for var/ and pub/ (Magento needs to write)
 RUN mkdir -p /var/www/html/var /var/www/html/pub/static /var/www/html/pub/media \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/pub/static /var/www/html/pub/media 2>/dev/null || true
