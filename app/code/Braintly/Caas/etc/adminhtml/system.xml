@@ -12,12 +12,21 @@
             <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>General</label>
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Enable Widget</label>
+                    <label>Habilitar botón "Encontrar mi talle"</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
                 <field id="api_url" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>CAAS API URL</label>
-                    <comment>URL base de la API CAAS (sin barra final). Ej: https://caas-api-dev.up.railway.app</comment>
+                    <label>URL de la API de CAAS</label>
+                    <comment>URL base de la API de CAAS, sin barra final. Ejemplo: https://caas-api-prod.example.com</comment>
+                </field>
+                <field id="button_position" translate="label comment" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Posición del botón</label>
+                    <source_model>Braintly\Caas\Model\Config\Source\ButtonPosition</source_model>
+                    <comment>Ubicación Magento-nativa preferida para la página de producto. Se ignora cuando se configura un selector CSS personalizado avanzado.</comment>
+                </field>
+                <field id="custom_selector" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Selector CSS personalizado avanzado</label>
+                    <comment>Si se completa, el botón se inserta en el elemento que matchee este selector. Tiene precedencia sobre Button Position. Ej: .product-info-main, #my-custom-container</comment>
                 </field>
             </group>
         </section>

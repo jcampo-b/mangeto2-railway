@@ -6,6 +6,8 @@
             <general>
                 <enabled>0</enabled>
                 <api_url>https://caas-api-dev.up.railway.app</api_url>
+                <button_position>before_addtocart</button_position>
+                <custom_selector></custom_selector>
             </general>
         </braintly_caas>
     </default>

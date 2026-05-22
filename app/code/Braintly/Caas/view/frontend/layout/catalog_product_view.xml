@@ -2,10 +2,97 @@
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <body>
+
         <referenceContainer name="before.body.end">
             <block class="Braintly\Caas\Block\Product\CaasWidget"
                    name="braintly.caas.widget"
                    template="Braintly_Caas::product/caas_widget.phtml"/>
         </referenceContainer>
+
+        <!--
+            CONTENEDORES DE POSICIÓN DEL BOTÓN
+            ────────────────────────────────────
+            Todos los referenceContainer aquí son containers reales
+            definidos en el layout de Magento_Catalog. Verificado contra:
+              vendor/magento/module-catalog/view/frontend/layout/catalog_product_view.xml
+              vendor/magento/theme-frontend-luma/Magento_Catalog/layout/catalog_product_view.xml
+
+            POSICIÓN → CONTAINER REAL:
+
+            before_addtocart  → product.info.main before="product.info"
+              product.info.form.content existe como container pero está
+              anidado dentro del block product.info — referenceContainer
+              no puede acceder a containers dentro de blocks.
+              La alternativa correcta es product.info.main con
+              before="product.info", que ubica el div justo antes del
+              form del producto. Es la posición más cercana a "antes del
+              add to cart" accesible desde el layout XML.
+
+            after_price       → product.info.price
+              Container del bloque de precio. after="-" lo pone al final,
+              debajo del precio y del SKU/stock (que Luma mueve ahí).
+
+            after_sku         → product.info.stock.sku
+              Container del bloque SKU + disponibilidad. after="-" lo pone
+              debajo del SKU.
+
+            after_description → product.info.main
+              La descripción larga (product.info.description) es un block
+              hijo de product.info.details, que a su vez es un block — no
+              un container accesible. El container más cercano es
+              product.info.main. after="-" lo pone al final del panel de
+              info del producto, debajo de la descripción corta.
+              Trade-off documentado: no es exactamente "after description"
+              sino "at the bottom of the info panel".
+        -->
+
+        <!-- Posición 1: antes del form del producto (lo más cercano a "antes del add to cart") -->
+        <referenceContainer name="product.info.main">
+            <block class="Braintly\Caas\Block\Product\ButtonContainer"
+                   name="braintly.caas.button.before_addtocart"
+                   template="Braintly_Caas::product/button_container.phtml"
+                   before="product.info">
+                <arguments>
+                    <argument name="position" xsi:type="string">before_addtocart</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+
+        <!-- Posición 2: debajo del precio -->
+        <referenceContainer name="product.info.price">
+            <block class="Braintly\Caas\Block\Product\ButtonContainer"
+                   name="braintly.caas.button.after_price"
+                   template="Braintly_Caas::product/button_container.phtml"
+                   after="-">
+                <arguments>
+                    <argument name="position" xsi:type="string">after_price</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+
+        <!-- Posición 3: debajo del SKU -->
+        <referenceContainer name="product.info.stock.sku">
+            <block class="Braintly\Caas\Block\Product\ButtonContainer"
+                   name="braintly.caas.button.after_sku"
+                   template="Braintly_Caas::product/button_container.phtml"
+                   after="-">
+                <arguments>
+                    <argument name="position" xsi:type="string">after_sku</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+
+        <!-- Posición 4: al final del panel de info (próximo a la descripción) -->
+        <referenceContainer name="product.info.main">
+            <block class="Braintly\Caas\Block\Product\ButtonContainer"
+                   name="braintly.caas.button.after_description"
+                   template="Braintly_Caas::product/button_container.phtml"
+                   after="-">
+                <arguments>
+                    <argument name="position" xsi:type="string">after_description</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
+
     </body>
 </page>

@@ -1,15 +1,38 @@
 <?php
 /** @var \Braintly\Caas\Block\Product\CaasWidget $block */
 
-if (!$block->isEnabled() || !$block->getProductId()) {
+$productId = $block->getProductId();
+$apiUrl = $block->getApiUrl();
+
+if (!$block->isEnabled() || !$productId || !$apiUrl) {
     return;
 }
+
+$storeId = $block->getStoreId();
+$containerId = $block->getContainerId();
+$targetSelector = $block->getTargetSelector();
+$scriptUrl = $apiUrl . '/magento-measurements-script.js';
 ?>
+
 <script>
   window.CAAS_CONFIG = {
-    store_id: "<?= $block->escapeJs($block->getStoreId()) ?>",
-    product_id: "<?= $block->escapeJs($block->getProductId()) ?>",
-    customer_id: <?= $block->getCustomerId() !== null ? '"' . $block->escapeJs($block->getCustomerId()) . '"' : 'null' ?>
+    store_id: "<?= $block->escapeJs($storeId) ?>",
+    product_id: "<?= $block->escapeJs($productId) ?>",
+    <?php if ($containerId !== null): ?>
+    container_id: "<?= $block->escapeJs($containerId) ?>",
+    placement: {
+      mode: "container",
+      container_id: "<?= $block->escapeJs($containerId) ?>",
+      legacy_fallback: true
+    }
+    <?php else: ?>
+    target_selector: "<?= $block->escapeJs($targetSelector ?? '') ?>",
+    placement: {
+      mode: "custom_selector",
+      target_selector: "<?= $block->escapeJs($targetSelector ?? '') ?>",
+      legacy_fallback: true
+    }
+    <?php endif; ?>
   };
 </script>
-<script src="<?= $block->escapeUrl($block->getApiUrl()) ?>/magento-measurements-script.js" defer></script>
+<script src="<?= $block->escapeUrl($scriptUrl) ?>" defer></script>

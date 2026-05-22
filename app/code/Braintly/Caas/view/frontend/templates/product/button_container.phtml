@@ -1,0 +1,10 @@
+<?php
+/** @var \Braintly\Caas\Block\Product\ButtonContainer $block */
+if (!$block->shouldRender()) {
+    return;
+}
+?>
+<div
+    id="<?= $block->escapeHtmlAttr($block->getContainerId()) ?>"
+    data-caas-mount="find-size"
+></div>
