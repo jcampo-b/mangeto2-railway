@@ -75,6 +75,12 @@ RUN curl -fsSL "https://codeload.github.com/magento/magento2/zip/refs/tags/${MAG
 # Copy Braintly CAAS module into the Magento image
 COPY app/code/Braintly/Caas /var/www/html/app/code/Braintly/Caas
 
+RUN echo "[caas-build] Verifying Braintly CAAS module..." \
+    && ls -la /var/www/html/app/code/Braintly/Caas \
+    && test -f /var/www/html/app/code/Braintly/Caas/registration.php \
+    && test -f /var/www/html/app/code/Braintly/Caas/etc/module.xml \
+    && grep -q "Braintly_Caas" /var/www/html/app/code/Braintly/Caas/etc/module.xml
+
 # Permissions for var/ and pub/ (Magento needs to write)
 RUN mkdir -p /var/www/html/var /var/www/html/pub/static /var/www/html/pub/media \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/pub/static /var/www/html/pub/media 2>/dev/null || true
