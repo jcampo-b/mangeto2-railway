@@ -134,6 +134,64 @@ if [ "$INSTALL_SAMPLE_DATA" = "1" ] && [ -f app/etc/env.php ] && [ ! -e app/code
     echo "[installation] Sample data installation finished successfully."
 fi
 
+# --- Optional: sync local Braintly CAAS module into Magento volume ---
+INSTALL_CAAS_MODULE="${INSTALL_CAAS_MODULE:-false}"
+case "$INSTALL_CAAS_MODULE" in
+    [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|1) INSTALL_CAAS_MODULE=1 ;;
+    *) INSTALL_CAAS_MODULE=0 ;;
+esac
+
+if [ "$INSTALL_CAAS_MODULE" = "1" ] && [ -f bin/magento ] && [ -f app/etc/env.php ]; then
+    CAAS_SOURCE_DIR="/opt/magento/app/code/Braintly/Caas"
+    CAAS_TARGET_DIR="/var/www/html/app/code/Braintly/Caas"
+    CAAS_STATE_DIR="/var/www/html/var/braintly"
+    CAAS_CHECKSUM_FILE="${CAAS_STATE_DIR}/caas-module.checksum"
+
+    if [ ! -d "$CAAS_SOURCE_DIR" ]; then
+        echo "[caas] Error: ${CAAS_SOURCE_DIR} was not found in the Docker image."
+        echo "[caas] Make sure the submodule exists at app/code/Braintly/Caas and Railway clones submodules."
+        exit 1
+    fi
+
+    mkdir -p "$CAAS_STATE_DIR"
+
+    CURRENT_CAAS_CHECKSUM="$(find "$CAAS_SOURCE_DIR" -type f ! -path '*/.git/*' -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')"
+    PREVIOUS_CAAS_CHECKSUM=""
+
+    if [ -f "$CAAS_CHECKSUM_FILE" ]; then
+        PREVIOUS_CAAS_CHECKSUM="$(cat "$CAAS_CHECKSUM_FILE")"
+    fi
+
+    if [ "$CURRENT_CAAS_CHECKSUM" = "$PREVIOUS_CAAS_CHECKSUM" ] && [ -d "$CAAS_TARGET_DIR" ]; then
+        echo "[caas] Braintly_Caas is already synced. Skipping Magento module setup."
+    else
+        echo "[caas] Syncing Braintly CAAS module into Magento volume..."
+
+        mkdir -p /var/www/html/app/code/Braintly
+        rm -rf "$CAAS_TARGET_DIR"
+        cp -r "$CAAS_SOURCE_DIR" "$CAAS_TARGET_DIR"
+
+        echo "[caas] Enabling Braintly_Caas..."
+        php bin/magento module:enable Braintly_Caas || true
+
+        echo "[caas] Running setup:upgrade..."
+        php bin/magento setup:upgrade
+
+        echo "[caas] Compiling dependency injection..."
+        php bin/magento setup:di:compile
+
+        echo "[caas] Deploying static content..."
+        php bin/magento setup:static-content:deploy -f
+
+        echo "[caas] Flushing cache..."
+        php bin/magento cache:flush
+
+        echo "$CURRENT_CAAS_CHECKSUM" > "$CAAS_CHECKSUM_FILE"
+
+        echo "[caas] Braintly_Caas module sync completed successfully."
+    fi
+fi
+
 # Permissions for PHP-FPM user (www-data) on every run
 chown -R www-data:www-data /var/www/html/var /var/www/html/generated /var/www/html/pub/static /var/www/html/pub/media 2>/dev/null || true
 chmod -R g+w /var/www/html/var /var/www/html/generated /var/www/html/pub/static /var/www/html/pub/media 2>/dev/null || true
