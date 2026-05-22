@@ -1,0 +1,3 @@
+[submodule "app/code/Braintly/Caas"]
+	path = app/code/Braintly/Caas
+	url = git@github-empresa:Braintly/CAAS-Magento.git

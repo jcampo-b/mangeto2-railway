@@ -59,7 +59,6 @@ if [ "$DB_INSTALLED" = "0" ]; then
         DB_HOST="${MYSQL_HOST}:${MYSQL_PORT}"
 
         echo "[installation] Installing Magento, this may take a while..."
-        echo "[installation] Starting Magento setup:install (database, admin, OpenSearch)..."
         php bin/magento setup:install \
             --base-url="${BASE_URL}" \
             --db-host="${DB_HOST}" \
@@ -80,24 +79,14 @@ if [ "$DB_INSTALLED" = "0" ]; then
             --admin-lastname="${ADMIN_LASTNAME:-User}" \
             --backend-frontname="${BACKEND_FRONTNAME:-admin}"
 
-        echo "[installation] setup:install completed. Running post-install steps..."
-        echo "[installation] Reindexing catalog search (catalogsearch_fulltext)..."
         php bin/magento indexer:reindex catalogsearch_fulltext || true
-        echo "[installation] Flushing cache..."
         php bin/magento cache:flush
-        echo "[installation] Setting deploy mode to production..."
         php bin/magento deploy:mode:set production
-        echo "[installation] Deploying static content (this may take several minutes)..."
         php bin/magento setup:static-content:deploy -f
-        echo "[installation] Disabling static content signing (dev/static/sign)..."
         php bin/magento config:set dev/static/sign 0
-        echo "[installation] Running cron..."
         php bin/magento cron:run
-        echo "[installation] Setting customer_grid indexer to realtime..."
         php bin/magento indexer:set-mode realtime customer_grid
-        echo "[installation] Configuring store base URL and secure settings..."
         php bin/magento setup:store-config:set --base-url="${BASE_URL}" --base-url-secure="${BASE_URL}" --use-secure=1 --use-secure-admin=1
-        echo "[installation] Final cache flush..."
         php bin/magento cache:flush
         echo "[installation] Magento installation finished successfully."
     fi
@@ -109,29 +98,84 @@ case "$INSTALL_SAMPLE_DATA" in
     [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|1) INSTALL_SAMPLE_DATA=1 ;;
     *) INSTALL_SAMPLE_DATA=0 ;;
 esac
+
 if [ "$INSTALL_SAMPLE_DATA" = "1" ] && [ -f app/etc/env.php ] && [ ! -e app/code/Magento/ThemeSampleData ]; then
     echo "[installation] INSTALL_SAMPLE_DATA=true: installing sample data, this may take a while..."
     if [ ! -d magento2-sample-data/dev/tools ]; then
-        echo "[installation] Cloning magento2-sample-data repository (branch 2.4)..."
         git clone --depth 1 --branch 2.4 https://github.com/magento/magento2-sample-data.git magento2-sample-data
     fi
-    echo "[installation] Building sample data (build-sample-data.php)..."
+
     ( cd magento2-sample-data && php -f dev/tools/build-sample-data.php -- --ce-source="/var/www/html" )
-    echo "[installation] Running setup:upgrade..."
     php bin/magento setup:upgrade
-    echo "[installation] Compiling dependency injection (setup:di:compile)..."
     php bin/magento setup:di:compile
-    echo "[installation] Deploying static content for sample data..."
     php bin/magento setup:static-content:deploy -f
-    echo "[installation] Flushing cache..."
     php bin/magento cache:flush
-    echo "[installation] Copying sample media (catalog, downloadable, wysiwyg)..."
+
     rm -rf pub/media/catalog pub/media/downloadable pub/media/wysiwyg
     cp -rL magento2-sample-data/pub/media/catalog \
           magento2-sample-data/pub/media/downloadable \
           magento2-sample-data/pub/media/wysiwyg \
           pub/media/
+
     echo "[installation] Sample data installation finished successfully."
+fi
+
+# --- Optional: sync local Braintly CAAS module into Magento volume ---
+INSTALL_CAAS_MODULE="${INSTALL_CAAS_MODULE:-false}"
+case "$INSTALL_CAAS_MODULE" in
+    [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|1) INSTALL_CAAS_MODULE=1 ;;
+    *) INSTALL_CAAS_MODULE=0 ;;
+esac
+
+if [ "$INSTALL_CAAS_MODULE" = "1" ] && [ -f bin/magento ] && [ -f app/etc/env.php ]; then
+    CAAS_SOURCE_DIR="/opt/magento/app/code/Braintly/Caas"
+    CAAS_TARGET_DIR="/var/www/html/app/code/Braintly/Caas"
+    CAAS_STATE_DIR="/var/www/html/var/braintly"
+    CAAS_CHECKSUM_FILE="${CAAS_STATE_DIR}/caas-module.checksum"
+
+    if [ ! -d "$CAAS_SOURCE_DIR" ]; then
+        echo "[caas] Error: ${CAAS_SOURCE_DIR} was not found in the Docker image."
+        echo "[caas] Make sure the submodule exists at app/code/Braintly/Caas and Railway clones submodules."
+        exit 1
+    fi
+
+    mkdir -p "$CAAS_STATE_DIR"
+
+    CURRENT_CAAS_CHECKSUM="$(find "$CAAS_SOURCE_DIR" -type f ! -path '*/.git/*' -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')"
+    PREVIOUS_CAAS_CHECKSUM=""
+
+    if [ -f "$CAAS_CHECKSUM_FILE" ]; then
+        PREVIOUS_CAAS_CHECKSUM="$(cat "$CAAS_CHECKSUM_FILE")"
+    fi
+
+    if [ "$CURRENT_CAAS_CHECKSUM" = "$PREVIOUS_CAAS_CHECKSUM" ] && [ -d "$CAAS_TARGET_DIR" ]; then
+        echo "[caas] Braintly_Caas is already synced. Skipping Magento module setup."
+    else
+        echo "[caas] Syncing Braintly CAAS module into Magento volume..."
+
+        mkdir -p /var/www/html/app/code/Braintly
+        rm -rf "$CAAS_TARGET_DIR"
+        cp -r "$CAAS_SOURCE_DIR" "$CAAS_TARGET_DIR"
+
+        echo "[caas] Enabling Braintly_Caas..."
+        php bin/magento module:enable Braintly_Caas || true
+
+        echo "[caas] Running setup:upgrade..."
+        php bin/magento setup:upgrade
+
+        echo "[caas] Compiling dependency injection..."
+        php bin/magento setup:di:compile
+
+        echo "[caas] Deploying static content..."
+        php bin/magento setup:static-content:deploy -f
+
+        echo "[caas] Flushing cache..."
+        php bin/magento cache:flush
+
+        echo "$CURRENT_CAAS_CHECKSUM" > "$CAAS_CHECKSUM_FILE"
+
+        echo "[caas] Braintly_Caas module sync completed successfully."
+    fi
 fi
 
 # Permissions for PHP-FPM user (www-data) on every run
