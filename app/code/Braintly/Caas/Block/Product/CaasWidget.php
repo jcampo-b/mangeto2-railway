@@ -7,6 +7,7 @@ namespace Braintly\Caas\Block\Product;
 use Braintly\Caas\Helper\Config;
 use Magento\Catalog\Model\Product;
 use Magento\Framework\Registry;
+use Magento\Framework\UrlInterface;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\View\Element\Template\Context;
 use Magento\Store\Model\StoreManagerInterface;
@@ -37,13 +38,16 @@ class CaasWidget extends Template
 
     public function getStoreId(): string
     {
-        return rtrim($this->storeManager->getStore()->getBaseUrl(), '/');
+        return $this->normalizeStoreUrl(
+            (string) $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_WEB)
+        );
     }
 
     public function getProductId(): string
     {
         /** @var Product|null $product */
         $product = $this->registry->registry('current_product');
+
         return $product ? (string) $product->getId() : '';
     }
 
@@ -52,6 +56,7 @@ class CaasWidget extends Template
         if ($this->config->hasCustomSelector()) {
             return null;
         }
+
         return self::DEFAULT_CONTAINER_ID;
     }
 
@@ -60,6 +65,20 @@ class CaasWidget extends Template
         if (!$this->config->hasCustomSelector()) {
             return null;
         }
+
         return $this->config->getCustomSelector();
+    }
+
+    private function normalizeStoreUrl(string $url): string
+    {
+        $url = trim($url);
+
+        if ($url === '') {
+            return '';
+        }
+
+        $url = preg_replace('#/index\.php/?$#', '', $url);
+
+        return rtrim((string) $url, '/');
     }
 }
