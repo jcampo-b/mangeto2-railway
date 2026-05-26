@@ -93,36 +93,184 @@ Eso NO debe pasar.
 
 ## Cómo actualizar el módulo CAAS en Railway
 
+El módulo `Braintly_Caas` se desarrolla en el repo original:
+
+```txt
+Braintly/CAAS-Magento
+```
+
+Para probarlo en Railway, el módulo se copia como archivos reales dentro del fork Magento:
+
+```txt
+app/code/Braintly/Caas
+```
+
+No se usa como submodule en este entorno.
+
+### Script recomendado
+
+Para evitar copiar el módulo manualmente con `rm -rf` + `cp -R`, este repo incluye un script de sincronización:
+
+```txt
+scripts/sync-caas-module.sh
+```
+
+El script sincroniza el módulo desde una carpeta `src/app` del repo original hacia:
+
+```txt
+app/code/Braintly/Caas
+```
+
+Usa `rsync --delete` para mantener el destino alineado con el origen y excluye archivos que no deben copiarse:
+
+```txt
+.git
+.gitmodules
+.DS_Store
+```
+
+Esto evita el problema de repositorios embebidos dentro de:
+
+```txt
+app/code/Braintly/Caas
+```
+
+### Uso con path explícito
+
 Desde la raíz del fork `mangeto2-railway`:
 
 ```bash
-rm -rf app/code/Braintly/Caas
-mkdir -p app/code/Braintly
-cp -R /Users/awesomejohnny/Development/Braintly/caas-magento-local/src/app/code/Braintly/Caas app/code/Braintly/Caas
-rm -rf app/code/Braintly/Caas/.git
-rm -f app/code/Braintly/Caas/.gitmodules
+./scripts/sync-caas-module.sh /absolute/path/to/caas-magento-local/src/app
 ```
 
-Verificar que estén los archivos clave:
+Ejemplo local:
+
+```bash
+./scripts/sync-caas-module.sh /Users/awesomejohnny/Development/Braintly/caas-magento-local/src/app
+```
+
+### Uso con variable de entorno
+
+También se puede configurar una variable de entorno para no pasar el path cada vez:
+
+```bash
+export CAAS_MAGENTO_SOURCE_APP=/Users/awesomejohnny/Development/Braintly/caas-magento-local/src/app
+./scripts/sync-caas-module.sh
+```
+
+### Script
+
+Crear el archivo:
+
+```txt
+scripts/sync-caas-module.sh
+```
+
+con este contenido:
+
+```bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DEFAULT_SOURCE_APP="../caas-magento-local/src/app"
+TARGET_APP="app"
+
+SOURCE_APP="${1:-${CAAS_MAGENTO_SOURCE_APP:-$DEFAULT_SOURCE_APP}}"
+
+SOURCE_MODULE="${SOURCE_APP%/}/code/Braintly/Caas"
+TARGET_MODULE="${TARGET_APP}/code/Braintly/Caas"
+
+echo "[caas-sync] Syncing Braintly CAAS Magento module"
+echo "[caas-sync] Source app: ${SOURCE_APP}"
+echo "[caas-sync] Source module: ${SOURCE_MODULE}"
+echo "[caas-sync] Target module: ${TARGET_MODULE}"
+
+if [ ! -d "${SOURCE_MODULE}" ]; then
+  echo "[caas-sync] ERROR: Source module does not exist."
+  echo "[caas-sync] Provide the source app path explicitly:"
+  echo "[caas-sync]   ./scripts/sync-caas-module.sh /absolute/path/to/caas-magento-local/src/app"
+  echo "[caas-sync] Or set:"
+  echo "[caas-sync]   export CAAS_MAGENTO_SOURCE_APP=/absolute/path/to/caas-magento-local/src/app"
+  exit 1
+fi
+
+if [ ! -f "${SOURCE_MODULE}/registration.php" ]; then
+  echo "[caas-sync] ERROR: Missing registration.php in source module."
+  exit 1
+fi
+
+if [ ! -f "${SOURCE_MODULE}/etc/module.xml" ]; then
+  echo "[caas-sync] ERROR: Missing etc/module.xml in source module."
+  exit 1
+fi
+
+mkdir -p "${TARGET_MODULE}"
+
+rsync -av --delete \
+  --exclude='.git' \
+  --exclude='.gitmodules' \
+  --exclude='.DS_Store' \
+  "${SOURCE_MODULE}/" \
+  "${TARGET_MODULE}/"
+
+echo "[caas-sync] Verifying target module..."
+
+test -f "${TARGET_MODULE}/registration.php"
+test -f "${TARGET_MODULE}/etc/module.xml"
+
+if find "${TARGET_MODULE}" \( -name ".git" -o -name ".gitmodules" \) | grep -q .; then
+  echo "[caas-sync] ERROR: Git metadata was copied into the target module."
+  echo "[caas-sync] Remove it before committing:"
+  echo "[caas-sync]   rm -rf ${TARGET_MODULE}/.git"
+  echo "[caas-sync]   rm -f ${TARGET_MODULE}/.gitmodules"
+  exit 1
+fi
+
+echo "[caas-sync] CAAS module synced successfully."
+echo "[caas-sync] Next steps:"
+echo "[caas-sync]   git status"
+echo "[caas-sync]   git add -A app/code/Braintly/Caas scripts/sync-caas-module.sh"
+echo "[caas-sync]   git commit -m \"Update CAAS module\""
+echo "[caas-sync]   git push origin main"
+```
+
+Darle permisos de ejecución:
+
+```bash
+chmod +x scripts/sync-caas-module.sh
+```
+
+### Verificación después de sincronizar
+
+Después de correr el script:
 
 ```bash
 ls -la app/code/Braintly/Caas/registration.php
 ls -la app/code/Braintly/Caas/etc/module.xml
+find app/code/Braintly/Caas \( -name ".git" -o -name ".gitmodules" \)
 ```
 
-Agregar y commitear:
+El último comando no debe devolver nada.
+
+También se puede verificar un cambio puntual del módulo, por ejemplo:
 
 ```bash
-git add -A app/code/Braintly/Caas Dockerfile docker/entrypoint.sh
+grep -R "normalizeStoreUrl" -n app/code/Braintly/Caas/Block/Product/CaasWidget.php
+```
+
+### Commit y deploy
+
+```bash
 git status
-git commit -m "Update CAAS module for Railway testing"
+git add -A app/code/Braintly/Caas scripts/sync-caas-module.sh docs/railway-magento-caas-workflow.md
+git commit -m "Update CAAS module"
 git push origin main
 ```
 
 Al hacer push a `main`, Railway debería disparar automáticamente un deploy.
 
 ---
-
 ## Cómo validar que el módulo quedó copiado en el build
 
 El `Dockerfile` incluye una verificación del módulo:
@@ -279,15 +427,22 @@ Si no aparece:
 
 ## Flujo recomendado para pruebas
 
-1. Desarrollar cambios en el módulo original.
-2. Copiar el módulo al fork Railway:
+1. Desarrollar cambios en el módulo original:
+
+```txt
+Braintly/CAAS-Magento
+```
+
+2. Sincronizar el módulo hacia el fork Railway:
 
 ```bash
-rm -rf app/code/Braintly/Caas
-mkdir -p app/code/Braintly
-cp -R /Users/awesomejohnny/Development/Braintly/caas-magento-local/src/app/code/Braintly/Caas app/code/Braintly/Caas
-rm -rf app/code/Braintly/Caas/.git
-rm -f app/code/Braintly/Caas/.gitmodules
+./scripts/sync-caas-module.sh /absolute/path/to/caas-magento-local/src/app
+```
+
+Ejemplo local:
+
+```bash
+./scripts/sync-caas-module.sh /Users/awesomejohnny/Development/Braintly/caas-magento-local/src/app
 ```
 
 3. Verificar archivos clave:
@@ -295,22 +450,25 @@ rm -f app/code/Braintly/Caas/.gitmodules
 ```bash
 ls -la app/code/Braintly/Caas/registration.php
 ls -la app/code/Braintly/Caas/etc/module.xml
+find app/code/Braintly/Caas \( -name ".git" -o -name ".gitmodules" \)
 ```
+
+El último comando no debe devolver nada.
 
 4. Commit y push:
 
 ```bash
-git add -A app/code/Braintly/Caas
+git add -A app/code/Braintly/Caas scripts/sync-caas-module.sh docs/railway-magento-caas-workflow.md
 git commit -m "Update CAAS module"
 git push origin main
 ```
 
 5. Esperar deploy automático en Railway.
-6. Revisar logs.
+6. Revisar logs `[caas]`.
 7. Validar en Magento Admin.
+8. Validar en storefront que `window.CAAS_CONFIG` refleje los cambios esperados.
 
 ---
-
 ## Troubleshooting rápido
 
 ### Railway no dispara deploy
